@@ -558,4 +558,35 @@ def plot_model_predictions(models, data, numeric_features, categorical_features,
     plt.legend()
     plt.show()
 
+def plot_target_by_break_variable(data, model, numeric_features, categorical_features, target, break_variable):
+    unique_values = data[break_variable].unique()
+
+    plt.figure(figsize=(16, 8 * len(unique_values)))
+
+    for i, value in enumerate(unique_values, start=1):
+        subset_data = data[data[break_variable] == value]
+        
+        if isinstance(model, SARIMAX):
+            order = model.order
+            seasonal_order = model.seasonal_order
+            fitted_model = SARIMAX(endog=subset_data[target], order=order, seasonal_order=seasonal_order)
+            results = fitted_model.fit(disp=False)
+            subset_data['y_'] = results.predict(start=0, end=len(subset_data) - 1)
+        else:
+            model.fit(subset_data[numeric_features + categorical_features], subset_data[target])
+            subset_data['y_'] = model.predict(subset_data[numeric_features + categorical_features])
+
+        subset_data['date'] = pd.to_datetime(subset_data['timestamp'], unit='ms')
+        
+        plt.subplot(len(unique_values), 1, i)
+        plt.plot(subset_data['date'], subset_data[target], label='True', linestyle='--')
+        plt.plot(subset_data['date'], subset_data['y_'], label='Predicted')
+        plt.title(f'{break_variable}={value}')
+        plt.xlabel('Date')
+        plt.ylabel(target)
+        plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
 
