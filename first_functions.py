@@ -581,4 +581,23 @@ def plot_target_by_break_variable(data, model, numeric_features, categorical_fea
     plt.tight_layout()
     plt.show()
 
+def plot_target(data, model, numeric_features, categorical_features, target):
+    # Ajuste o modelo no conjunto de dados inteiro
+    model.fit(data[numeric_features + categorical_features], data[target])
+    data['y_'] = model.predict(data[numeric_features + categorical_features])
+
+    # Configura a figura para plotagem
+    plt.figure(figsize=(16, 8))
+
+    # Plote os valores reais e previstos
+    plt.plot(data['data'], data[target], label='True', linestyle='--')
+    plt.plot(data['data'], data['y_'], label='Predicted')
+    plt.title('Plot of True vs Predicted Values')
+    plt.xlabel('Date')
+    plt.ylabel(target)
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()    
+
 
