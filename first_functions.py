@@ -391,30 +391,6 @@ def tratando_missing_values(df):
     return df
 
 
-
-# Função para gerar o pipeline
-# def pipeline_generator(model, numeric_features, categorical_features):
-#     numeric_transformer = Pipeline(steps=[
-#         ('scaler', StandardScaler())
-#     ])
-
-#     categorical_transformer = Pipeline(steps=[
-#         ('onehot', OneHotEncoder(handle_unknown='ignore'))
-#     ])
-
-#     preprocessor = ColumnTransformer(
-#         transformers=[
-#             ('num', numeric_transformer, numeric_features),
-#             ('cat', categorical_transformer, categorical_features)
-#         ])
-
-#     pipeline = Pipeline(steps=[
-#         ('preprocessor', preprocessor),
-#         ('model', model)
-#     ])
-
-#     return pipeline
-
 def pipeline_generator(model, numeric_features=None, categorical_features=None):
     if isinstance(model, ARIMA):
         # Se o modelo for ARIMA, criar um pipeline simples para manipulação de séries temporais
@@ -444,20 +420,7 @@ def pipeline_generator(model, numeric_features=None, categorical_features=None):
 
     return pipeline
 
-# Função para calcular as métricas usando validação cruzada
-# def cross_val_metrics(pipeline, X, y, encoded_break_variable=None):
-#     cv = KFold(n_splits=5, shuffle=True, random_state=42)
-    
-#     mae_scores = cross_val_score(pipeline, X, y, cv=cv, scoring='neg_mean_absolute_error')
-#     mse_scores = cross_val_score(pipeline, X, y, cv=cv, scoring='neg_mean_squared_error')
-#     mape_scores = cross_val_score(pipeline, X, y, cv=cv, scoring='neg_mean_absolute_percentage_error')
 
-#     mae = -np.mean(mae_scores)
-#     mse = -np.mean(mse_scores)
-#     rmse = np.sqrt(mse)
-#     mape = -np.mean(mape_scores)
-
-#     return mae, mse, rmse, mape
 
 
 def cross_val_metrics(model, X, y, is_arima=False):
@@ -507,54 +470,7 @@ def cross_val_metrics(model, X, y, is_arima=False):
 
     return mae, mse, rmse, mape
 
-# def cross_val_metrics(model, x, y, encoded_break_variable=None, arima=False, seasonal=True):
-#     data = pd.DataFrame({'target': y, 'break_variable': encoded_break_variable})
-#     data['y_'] = np.nan
 
-#     sampling = StratifiedKFold() if encoded_break_variable is not None else None
-#     for train, test in sampling.split(x, encoded_break_variable) if sampling else [(range(len(x)), range(len(x)))]:
-#         x_train, y_train = x.iloc[train], y.iloc[train]
-#         x_test = x.iloc[test]
-        
-#         if arima:
-#             mape, order, seasonal_order = fit_arima_model(pd.concat([x_train, x_test]), pd.concat([y_train, y.iloc[test]]), seasonal=seasonal)
-#         else:
-#             model.fit(x_train, y_train)
-#             y_ = model.predict(x_test)
-#             data['y_'].iloc[test] = y_
-
-#     if not arima:
-#         mae = mean_absolute_error(data['target'], data['y_'])
-#         mse = mean_squared_error(data['target'], data['y_'])
-#         rmse = np.sqrt(mse)
-#         mape = mean_absolute_percentage_error(data['target'], data['y_'])
-#     else:
-#         mae, mse, rmse = None, None, None
-
-#     return mae, mse, rmse, mape
-
-
-
-# def train_and_evaluate_models(models, data, numeric_features, categorical_features, target, break_variable=None):
-#     metrics_df = pd.DataFrame(columns=['Model', 'MAE', 'MSE', 'RMSE', 'MAPE'])
-
-#     for key, model_class in models.items():
-#             model = model_class()
-
-#             pipeline = pipeline_generator(model, numeric_features, categorical_features)
-#             encoded_break_variable = LabelEncoder().fit_transform(data[break_variable]) if break_variable else None
-            
-#             mae, mse, rmse, mape = cross_val_metrics(pipeline, data[numeric_features + categorical_features], data[target], encoded_break_variable)
-            
-#             metrics_df = metrics_df.append({
-#                 'Model': key,
-#                 'MAE': mae,
-#                 'MSE': mse,
-#                 'RMSE': rmse,
-#                 'MAPE': mape
-#             }, ignore_index=True)
-        
-#     return metrics_df
 
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
@@ -594,6 +510,52 @@ def plot_mape_comparison(metrics_df):
     plt.ylabel('MAPE')
     plt.xticks(rotation=45)
     plt.tight_layout()
+    plt.show()
+
+def choose_best_model(metrics_df, metric='MAE'):
+    # Escolhe o modelo com o menor valor na métrica especificada
+    best_model_row = metrics_df.loc[metrics_df[metric].idxmin()]
+    best_model_name = best_model_row['Model']
+    return best_model_name, best_model_row  
+
+
+def plot_model_predictions(models, data, numeric_features, categorical_features, target):
+    plt.figure(figsize=(14, 7))
+    
+    for key, model_info in models.items():
+        model_class = model_info['model']
+        is_arima = model_info.get('is_arima', False)
+        
+        if is_arima:
+            # Para ARIMA, os dados de entrada são univariados (apenas a série temporal)
+            X = data[target].values
+            y = data[target].values
+            
+            # Ajustar e prever usando ARIMA
+            model = model_class()
+            model_fit = model.fit(y)
+            y_pred = model_fit.forecast(steps=len(y))
+        else:
+            # Para modelos não ARIMA, usamos as features e o target
+            model = model_class()
+            pipeline = pipeline_generator(model, numeric_features, categorical_features)
+            X = data[numeric_features + categorical_features]
+            y = data[target]
+            
+            # Ajustar e prever usando o pipeline
+            pipeline.fit(X, y)
+            y_pred = pipeline.predict(X)
+        
+        # Plotar as previsões
+        plt.plot(data.index, y_pred, label=f'{key} Predictions')
+    
+    # Plotar os valores reais
+    plt.plot(data.index, data[target], label='Actual Values', color='black', linestyle='dashed')
+    
+    plt.title('Model Predictions vs Actual Values')
+    plt.xlabel('Index')
+    plt.ylabel(target)
+    plt.legend()
     plt.show()
 
 
