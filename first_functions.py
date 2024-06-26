@@ -391,36 +391,47 @@ def tratando_missing_values(df):
     return df
 
 
+
+
 def pipeline_generator(model, numeric_features=None, categorical_features=None):
+    # Verificação se numeric_features e categorical_features são listas válidas
+    if numeric_features is None:
+        numeric_features = []
+    if categorical_features is None:
+        categorical_features = []
+
+    # Se o modelo for ARIMA, criar um pipeline simples para manipulação de séries temporais
     if isinstance(model, ARIMA):
-        # Se o modelo for ARIMA, criar um pipeline simples para manipulação de séries temporais
         pipeline = Pipeline(steps=[
-            ('model', model)  # Aqui você pode adicionar transformações de dados específicas, se necessário
+            ('model', model)
         ])
     else:
-        # Para outros modelos do scikit-learn
+        # Transformador para features numéricas
         numeric_transformer = Pipeline(steps=[
             ('scaler', StandardScaler())
-        ])
+        ]) if numeric_features else None
 
+        # Transformador para features categóricas
         categorical_transformer = Pipeline(steps=[
             ('onehot', OneHotEncoder(handle_unknown='ignore'))
-        ])
+        ]) if categorical_features else None
 
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', numeric_transformer, numeric_features),
-                ('cat', categorical_transformer, categorical_features)
-            ])
+        # Criar o pré-processador com transformadores relevantes
+        transformers = []
+        if numeric_transformer:
+            transformers.append(('num', numeric_transformer, numeric_features))
+        if categorical_transformer:
+            transformers.append(('cat', categorical_transformer, categorical_features))
 
+        preprocessor = ColumnTransformer(transformers=transformers)
+
+        # Criar o pipeline completo
         pipeline = Pipeline(steps=[
             ('preprocessor', preprocessor),
             ('model', model)
         ])
 
     return pipeline
-
-
 
 
 def cross_val_metrics(model, X, y, is_arima=False):
@@ -558,7 +569,7 @@ def plot_model_predictions(models, data, numeric_features, categorical_features,
     plt.legend()
     plt.show()
 
-def plot_target_by_break_variable(data, model, numeric_features, categorical_features, target, break_variable):
+def plot_target_by_break_variable(data, model, numeric_features, categorical_features, target, break_variable = None):
     unique_values = data[break_variable].unique()
 
     plt.figure(figsize=(16, 8 * len(unique_values)))
@@ -598,6 +609,109 @@ def plot_target(data, model, numeric_features, categorical_features, target):
     plt.legend()
 
     plt.tight_layout()
-    plt.show()    
+    plt.show()   
 
 
+def transform_month_to_season(df, month_col='mes'):
+    """
+    Transforma a coluna de mês em uma coluna de estação do ano.
+
+    Parâmetros:
+    - df: DataFrame contendo a coluna do mês
+    - month_col: Nome da coluna do mês (default: 'mes')
+
+    Retorna:
+    - DataFrame com a nova coluna 'season'
+    """
+    df['season'] = df[month_col].apply(lambda x: (x % 12 + 3) // 3)
+    return df 
+
+def analyze_precipitation(df, numeric_features, categorical_features, model, model_name, target_feature='precipitacao'):
+    """
+    Realiza a análise de precipitação, incluindo pré-processamento, treinamento e avaliação do modelo.
+
+    Parâmetros:
+    - df: DataFrame contendo os dados
+    - numeric_features: Lista de colunas numéricas para usar como features
+    - categorical_features: Lista de colunas categóricas para usar como features
+    - model: Modelo de aprendizado de máquina a ser usado
+    - model_name: Nome do modelo de aprendizado de máquina a ser usado
+    - target_feature: Nome da coluna alvo (default: 'precipitacao')
+
+    Retorna:
+    - None
+    """
+    # Tratar valores ausentes
+    print("Preenchendo valores ausentes...")
+
+    # Preencher colunas numéricas com a mediana
+    df[numeric_features] = df[numeric_features].fillna(df[numeric_features].median())
+
+    # Preencher colunas categóricas com a moda
+    df[categorical_features] = df[categorical_features].apply(lambda x: x.fillna(x.mode()[0]))
+
+    # Definir características e alvo
+    features = numeric_features + categorical_features
+    target = df[target_feature]
+
+    # Remover colunas não numéricas para a análise de correlação
+    df_corr = df[numeric_features].copy()
+
+    # Análise de correlação
+    print("Calculando matriz de correlação...")
+    corr_matrix = df_corr.corr()
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
+    plt.show()
+
+    # Divisão de treino e teste
+    print("Dividindo os dados em treino e teste...")
+    X_train, X_test, y_train, y_test = train_test_split(df[features], target, test_size=0.2, random_state=42)
+
+    # Pipelines de pré-processamento
+    numeric_transformer = Pipeline(steps=[
+        ('scaler', StandardScaler())])
+
+    categorical_transformer = Pipeline(steps=[
+        ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numeric_transformer, numeric_features),
+            ('cat', categorical_transformer, categorical_features)])
+
+    # Pipeline de modelagem
+    model_pipeline = Pipeline(steps=[
+        ('preprocessor', preprocessor),
+        ('regressor', model)])
+
+    # Treinar o modelo
+    print(f"Treinando o modelo ({model_name})...")
+    model_pipeline.fit(X_train, y_train)
+
+    # Prever
+    print("Realizando previsões...")
+    y_pred = model_pipeline.predict(X_test)
+
+    # Avaliar
+    print("Avaliando o modelo...")
+    mse = mean_squared_error(y_test, y_pred)
+    print(f'Mean Squared Error ({model_name}): {mse}')
+
+    # Importância das características (se aplicável)
+    if hasattr(model, 'feature_importances_'):
+        importances = model.feature_importances_
+        print("Importância das características:")
+        feature_names = numeric_features + list(model_pipeline.named_steps['preprocessor'].transformers_[1][1]['onehot'].get_feature_names_out(categorical_features))
+        for feature, importance in zip(feature_names, importances):
+            print(f"{feature}: {importance}")
+
+    # Plotar gráfico de previsões
+    plt.figure(figsize=(10, 6))
+    plt.plot(y_test.values, label='Valores Reais')
+    plt.plot(y_pred, label='Valores Previstos', alpha=0.7)
+    plt.title(f'Previsão de Precipitação ({model_name})')
+    plt.xlabel('Amostras')
+    plt.ylabel('Precipitação')
+    plt.legend()
+    plt.show()

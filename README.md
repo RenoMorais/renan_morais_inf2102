@@ -66,3 +66,7 @@ plot_model_predictions(models, data, numeric_features, categorical_features, tar
 plot_target_by_break_variable(data, model, numeric_features, categorical_features, target, break_variable): Plota previsões e valores reais, segmentados por uma variável de quebra.
 
 plot_target(data, model, numeric_features, categorical_features, target): Plota previsões e valores reais em um gráfico geral.
+
+transform_month_to_season: Função que transforma a coluna de mês em uma coluna de estação do ano no DataFrame.
+
+analyze_precipitation: Função que realiza análise de precipitação, incluindo pré-processamento dos dados, treinamento de modelos de aprendizado de máquina selecionados pelo usuário, e avaliação dos resultados.
