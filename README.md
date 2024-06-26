@@ -4,6 +4,37 @@ Breve Descrição
 
 O principal objetivo do programa é treinar e avaliar diferentes modelos de aprendizado de máquina, incluindo modelos tradicionais e modelos de séries temporais como o ARIMA, especificamente para dados de variáveis climáticas do INMET (Instituto Nacional de Meteorologia). Ele fornece funcionalidades para a criação de pipelines de processamento de dados, validação cruzada e cálculo de métricas de desempenho, como MAE, MSE, RMSE e MAPE.
 
+-----------------------------------------------------------------------------------------------------------------------
+
+É necessário fazer a clonagem do repositório, importando no seu script de avaliação a biblioteca inclusa nesse github (first_functions.py)
+
+Como de primeiro momento, o usuário necessitará instalar as seguintes bibliotecas no seu ambiente virtual:
+
+numpy
+pandas
+matplotlib.pyplot
+seaborn
+os
+datetime
+pmdarima.ARIMA
+sklearn.base.BaseEstimator
+sklearn.base.RegressorMixin
+csv
+io
+re
+zipfile
+pathlib.Path
+tqdm
+cartopy.crs
+cartopy.feature
+geopy.distance.geodesic
+
+Após a instalação dessas bibliotecas é necessário a importação da biblioteca em questão:
+
+"from first_functions import *"
+
+Abaixo segue algumas funcionalidades da biblioteca e posteriormente a descrição de cada função.
+
 Funcionalidades específicas relevantes:
 •	Criação de pipelines de pré-processamento de dados, incluindo tratamento de características numéricas e categóricas.
 •	Validação cruzada utilizando K-Fold para modelos tradicionais e TimeSeriesSplit para modelos de séries temporais.
